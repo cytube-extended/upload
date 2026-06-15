@@ -1,4 +1,4 @@
-export const upload = async (
+export const uploadBlob = async (
   file: File,
   userhash?: string,
 ): Promise<string> => {

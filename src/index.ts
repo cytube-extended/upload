@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { upload } from "./services/catbox";
+import { uploadBlob } from "./services/catbox";
 
 interface Env {
   USERHASH: string;
@@ -46,7 +46,7 @@ app.use("*", async (c, next) => {
   await next();
 });
 
-app.post("/upload", async (c) => {
+app.post("/blob", async (c) => {
   const allowedOrigin = c.env.ALLOWED_ORIGIN;
   if (!allowedOrigin) {
     console.error("ALLOWED_ORIGIN not set, blocking all requests");
@@ -82,7 +82,7 @@ app.post("/upload", async (c) => {
 
     const userhash = c.env.USERHASH;
     try {
-      const response = await upload(file, userhash);
+      const response = await uploadBlob(file, userhash);
       const result = response.trim();
 
       c.header("Access-Control-Allow-Origin", allowedOrigin);
