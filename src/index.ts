@@ -7,6 +7,15 @@ interface Env {
   MAX_UPLOAD_SIZE: string;
 }
 
+interface BlobUploadBody {
+  file: File;
+}
+
+interface UrlUploadBody {
+  url: string;
+  fetch?: "true" | "false";
+}
+
 const CLOUDFLARE_MAX_BODY_SIZE = 100 * 1024 * 1024; // 100 MB
 const DEFAULT_MAX_UPLOAD_SIZE = CLOUDFLARE_MAX_BODY_SIZE;
 const FALLBACK_MAX_UPLOAD_SIZE = 50 * 1024 * 1024; // 50 MB
@@ -87,9 +96,7 @@ app.post("/blob", async (c) => {
   }
 
   try {
-    const body = await c.req.parseBody();
-    const file = body["file"];
-
+    const { file } = await c.req.parseBody<Partial<BlobUploadBody>>();
     if (!file || !(file instanceof File)) {
       return c.text("missing file in request body", 400);
     }
@@ -138,10 +145,8 @@ app.post("/url", async (c) => {
   }
 
   try {
-    const body = await c.req.parseBody();
-    const url = body["url"];
-    const toFetch = body["fetch"];
-
+    const { url, fetch: toFetch } =
+      await c.req.parseBody<Partial<UrlUploadBody>>();
     if (typeof url !== "string") {
       return c.text("missing url in request body", 400);
     }
@@ -162,7 +167,8 @@ app.post("/url", async (c) => {
     const userhash = c.env.USERHASH;
     try {
       const urlClean = url.trim();
-      const response = toFetch
+      const shouldFetch = toFetch === "true";
+      const response = shouldFetch
         ? await uploadBlob(await fetchFile(urlClean), userhash)
         : await uploadUrl(urlClean, userhash);
       const result = response.trim();
