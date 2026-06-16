@@ -115,33 +115,34 @@ app.post("/blob", async (c) => {
       return c.text("missing file in request body", 400);
     }
 
-    const isImg = file.type.startsWith("image/");
-    const isGif = file.type === "image/gif";
-    if (isGif) {
-      const maxGifSize =
-        CATBOX_MAX_GIF_SIZE > IMGBB_MAX_FILE_SIZE
-          ? CATBOX_MAX_GIF_SIZE
-          : IMGBB_MAX_FILE_SIZE;
-      const isGifTooLarge = fileSize > maxGifSize;
-      const maxGifSizeMb = Math.floor(maxGifSize / 1024 / 1024);
+    // const isImg = file.type.startsWith("image/");
+    // const isGif = file.type === "image/gif";
+    // if (isGif) {
+    //   const maxGifSize =
+    //     CATBOX_MAX_GIF_SIZE > IMGBB_MAX_FILE_SIZE
+    //       ? CATBOX_MAX_GIF_SIZE
+    //       : IMGBB_MAX_FILE_SIZE;
+    //   const isGifTooLarge = fileSize > maxGifSize;
+    //   const maxGifSizeMb = Math.floor(maxGifSize / 1024 / 1024);
 
-      console.error(
-        `gif too large: ${fileSize} bytes (max: ${maxGifSizeMb} MB)`,
-      );
+    //   console.error(
+    //     `gif too large: ${fileSize} bytes (max: ${maxGifSizeMb} MB)`,
+    //   );
 
-      return c.text(`max supported gif size: ${maxGifSizeMb} MB`);
-    }
+    //   return c.text(`max supported gif size: ${maxGifSizeMb} MB`);
+    // }
 
     const userhash = c.env.USERHASH;
-    const imgbbKey = c.env.IMGBB_API_KEY;
-    const isImgbbFileSize = fileSize < IMGBB_MAX_FILE_SIZE;
-    const useImgbb = isImg && isImgbbFileSize;
-    const useImgbbProvider = useImgbb && imgbbKey !== "";
+    // const imgbbKey = c.env.IMGBB_API_KEY;
+    // const isImgbbFileSize = fileSize < IMGBB_MAX_FILE_SIZE;
+    // const useImgbb = isImg && isImgbbFileSize;
+    // const useImgbbProvider = useImgbb && imgbbKey !== "";
 
     try {
-      const response = useImgbbProvider
-        ? await uploadImageBlob(file, imgbbKey)
-        : await uploadBlob(file, userhash);
+      // const response = useImgbbProvider
+      //   ? await uploadImageBlob(file, imgbbKey)
+      //   : await uploadBlob(file, userhash);
+      const response = await uploadBlob(file, userhash);
       const result = response.trim();
 
       c.header("Access-Control-Allow-Origin", allowedOrigin);
