@@ -1,10 +1,16 @@
 import { Hono } from "hono";
-import { uploadBlob, uploadUrl } from "./services/catbox";
+import { uploadBlob } from "./services/catbox";
+import {
+  uploadImageBlob,
+  uploadImageUrl,
+  MAX_FILE_SIZE as IMGBB_MAX_FILE_SIZE,
+} from "./services/imgbb";
 
 interface Env {
   USERHASH: string;
   ALLOWED_ORIGIN: string;
   MAX_UPLOAD_SIZE: string;
+  IMGBB_API_KEY: string;
 }
 
 interface BlobUploadBody {
@@ -13,7 +19,6 @@ interface BlobUploadBody {
 
 interface UrlUploadBody {
   url: string;
-  fetch?: "true" | "false";
 }
 
 const CLOUDFLARE_MAX_BODY_SIZE = 100 * 1024 * 1024; // 100 MB
@@ -101,9 +106,18 @@ app.post("/blob", async (c) => {
       return c.text("missing file in request body", 400);
     }
 
+    const isImg = file.type.startsWith("image/");
+
     const userhash = c.env.USERHASH;
+    const imgbbKey = c.env.IMGBB_API_KEY;
+    const isImgbbFileSize = fileSize < IMGBB_MAX_FILE_SIZE;
+    const useImgbb = isImg && isImgbbFileSize;
+    const useImgbbProvider = useImgbb && imgbbKey !== "";
+
     try {
-      const response = await uploadBlob(file, userhash);
+      const response = useImgbbProvider
+        ? await uploadImageBlob(file, imgbbKey)
+        : await uploadBlob(file, userhash);
       const result = response.trim();
 
       c.header("Access-Control-Allow-Origin", allowedOrigin);
@@ -111,7 +125,7 @@ app.post("/blob", async (c) => {
 
       return c.text(result, 200);
     } catch (err) {
-      return c.text(`catbox upload failed: ${(err as Error).message}`, 500);
+      return c.text(`upload failed: ${(err as Error).message}`, 500);
     }
   } catch (err) {
     return c.text(`failed to parse body: ${(err as Error).message}`, 400);
@@ -145,8 +159,7 @@ app.post("/url", async (c) => {
   }
 
   try {
-    const { url, fetch: toFetch } =
-      await c.req.parseBody<Partial<UrlUploadBody>>();
+    const { url } = await c.req.parseBody<Partial<UrlUploadBody>>();
     if (typeof url !== "string") {
       return c.text("missing url in request body", 400);
     }
@@ -164,21 +177,63 @@ app.post("/url", async (c) => {
       );
     }
 
+    const urlClean = url.trim();
+
     const userhash = c.env.USERHASH;
+    const imgbbKey = c.env.IMGBB_API_KEY;
+
     try {
-      const urlClean = url.trim();
-      const shouldFetch = toFetch === "true";
-      const response = shouldFetch
-        ? await uploadBlob(await fetchFile(urlClean), userhash)
-        : await uploadUrl(urlClean, userhash);
-      const result = response.trim();
+      const file = await fetchFile(urlClean);
+      const fileSize = file.size;
+      const isImg = file.type.startsWith("image/");
 
-      c.header("Access-Control-Allow-Origin", allowedOrigin);
-      c.header("Content-Type", "text/plain");
+      // Try to use ImgBB
+      try {
+        if (!isImg) {
+          throw new Error("not an image");
+        }
 
-      return c.text(result, 200);
+        if (imgbbKey === "") {
+          throw new Error("no ImgBB API key");
+        }
+
+        const isImgbbFileSize = fileSize < IMGBB_MAX_FILE_SIZE;
+        if (!isImgbbFileSize) {
+          throw new Error("file size too large");
+        }
+
+        const response = await uploadImageUrl(urlClean, imgbbKey);
+        const result = response.trim();
+
+        c.header("Access-Control-Allow-Origin", allowedOrigin);
+        c.header("Content-Type", "text/plain");
+
+        return c.text(result, 200);
+      } catch (err) {
+        console.warn(
+          "imgbb: failed to upload image URL to ImgBB",
+          (err as Error).message,
+        );
+      }
+
+      // Use catbox
+      try {
+        // NOTE: Catbox URL upload is currently broken (returns empty image) so use blob upload
+        const response = await uploadBlob(file, userhash);
+        const result = response.trim();
+
+        c.header("Access-Control-Allow-Origin", allowedOrigin);
+        c.header("Content-Type", "text/plain");
+
+        return c.text(result, 200);
+      } catch (err) {
+        return c.text(
+          `catbox: failed to upload file: ${(err as Error).message}`,
+          500,
+        );
+      }
     } catch (err) {
-      return c.text(`catbox upload failed: ${(err as Error).message}`, 500);
+      return c.text(`failed to fetch file: ${(err as Error).message}`, 500);
     }
   } catch (err) {
     return c.text(`failed to parse body: ${(err as Error).message}`, 400);
