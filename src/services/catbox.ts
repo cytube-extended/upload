@@ -1,6 +1,8 @@
 const endpoint = "https://catbox.moe/user/api.php";
 const userAgent = "CatBox/1.0";
 
+export const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
+
 const sendRequest = async (formData: FormData): Promise<Response> =>
   fetch(endpoint, {
     method: "POST",
