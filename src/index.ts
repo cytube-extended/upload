@@ -209,52 +209,52 @@ app.post("/url", async (c) => {
     const urlClean = url.trim();
 
     const userhash = c.env.USERHASH;
-    const imgbbKey = c.env.IMGBB_API_KEY;
+    // const imgbbKey = c.env.IMGBB_API_KEY;
 
     try {
       const file = await fetchFile(urlClean);
       const fileSize = file.size;
-      const isImg = file.type.startsWith("image/");
-      const isGif = file.type === "image/gif";
-      if (isGif) {
-        const maxGifSize =
-          CATBOX_MAX_GIF_SIZE > IMGBB_MAX_FILE_SIZE
-            ? CATBOX_MAX_GIF_SIZE
-            : IMGBB_MAX_FILE_SIZE;
-        const isGifTooLarge = fileSize > maxGifSize;
-        const maxGifSizeMb = Math.floor(maxGifSize / 1024 / 1024);
+      // const isImg = file.type.startsWith("image/");
+      // const isGif = file.type === "image/gif";
+      // if (isGif) {
+      //   const maxGifSize =
+      //     CATBOX_MAX_GIF_SIZE > IMGBB_MAX_FILE_SIZE
+      //       ? CATBOX_MAX_GIF_SIZE
+      //       : IMGBB_MAX_FILE_SIZE;
+      //   const isGifTooLarge = fileSize > maxGifSize;
+      //   const maxGifSizeMb = Math.floor(maxGifSize / 1024 / 1024);
 
-        return c.text(`max supported gif size: ${maxGifSizeMb} MB`);
-      }
+      //   return c.text(`max supported gif size: ${maxGifSizeMb} MB`);
+      // }
 
       // Try to use ImgBB
-      try {
-        if (!isImg) {
-          throw new Error("not an image");
-        }
+      // try {
+      //   if (!isImg) {
+      //     throw new Error("not an image");
+      //   }
 
-        if (imgbbKey === "") {
-          throw new Error("no ImgBB API key");
-        }
+      //   if (imgbbKey === "") {
+      //     throw new Error("no ImgBB API key");
+      //   }
 
-        const isImgbbFileSize = fileSize < IMGBB_MAX_FILE_SIZE;
-        if (!isImgbbFileSize) {
-          throw new Error("file size too large");
-        }
+      //   const isImgbbFileSize = fileSize < IMGBB_MAX_FILE_SIZE;
+      //   if (!isImgbbFileSize) {
+      //     throw new Error("file size too large");
+      //   }
 
-        const response = await uploadImageUrl(urlClean, imgbbKey);
-        const result = response.trim();
+      //   const response = await uploadImageUrl(urlClean, imgbbKey);
+      //   const result = response.trim();
 
-        c.header("Access-Control-Allow-Origin", allowedOrigin);
-        c.header("Content-Type", "text/plain");
+      //   c.header("Access-Control-Allow-Origin", allowedOrigin);
+      //   c.header("Content-Type", "text/plain");
 
-        return c.text(result, 200);
-      } catch (err) {
-        console.warn(
-          "imgbb: failed to upload image URL to ImgBB",
-          (err as Error).message,
-        );
-      }
+      //   return c.text(result, 200);
+      // } catch (err) {
+      //   console.warn(
+      //     "imgbb: failed to upload image URL to ImgBB",
+      //     (err as Error).message,
+      //   );
+      // }
 
       // Use catbox
       try {
