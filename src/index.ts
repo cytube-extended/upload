@@ -94,18 +94,24 @@ app.post("/blob", async (c) => {
 
   const contentLength = c.req.header("Content-Length");
   if (!contentLength) {
+    console.error("content length not specified");
+
     return c.text("content length not specified", 400);
   }
 
   const maxFileSize = getMaxUploadSize(c.env);
   const fileSize = parseInt(contentLength, 10);
   if (fileSize > maxFileSize) {
+    console.error(`request entity too large: ${fileSize} bytes`);
+
     return c.text("request entity too large", 413);
   }
 
   try {
     const { file } = await c.req.parseBody<Partial<BlobUploadBody>>();
     if (!file || !(file instanceof File)) {
+      console.error("missing file in request body");
+
       return c.text("missing file in request body", 400);
     }
 
@@ -118,6 +124,10 @@ app.post("/blob", async (c) => {
           : IMGBB_MAX_FILE_SIZE;
       const isGifTooLarge = fileSize > maxGifSize;
       const maxGifSizeMb = Math.floor(maxGifSize / 1024 / 1024);
+
+      console.error(
+        `gif too large: ${fileSize} bytes (max: ${maxGifSizeMb} MB)`,
+      );
 
       return c.text(`max supported gif size: ${maxGifSizeMb} MB`);
     }
@@ -139,9 +149,13 @@ app.post("/blob", async (c) => {
 
       return c.text(result, 200);
     } catch (err) {
+      console.error(`upload failed: ${(err as Error).message}`);
+
       return c.text(`upload failed: ${(err as Error).message}`, 500);
     }
   } catch (err) {
+    console.error(`failed to parse body: ${(err as Error).message}`);
+
     return c.text(`failed to parse body: ${(err as Error).message}`, 400);
   }
 });
