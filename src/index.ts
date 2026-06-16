@@ -111,7 +111,7 @@ app.post("/blob", async (c) => {
 
     const isImg = file.type.startsWith("image/");
     const isGif = file.type === "image/gif";
-    if (!isGif) {
+    if (isGif) {
       const maxGifSize =
         CATBOX_MAX_GIF_SIZE > IMGBB_MAX_FILE_SIZE
           ? CATBOX_MAX_GIF_SIZE
@@ -201,7 +201,7 @@ app.post("/url", async (c) => {
       const fileSize = file.size;
       const isImg = file.type.startsWith("image/");
       const isGif = file.type === "image/gif";
-      if (!isGif) {
+      if (isGif) {
         const maxGifSize =
           CATBOX_MAX_GIF_SIZE > IMGBB_MAX_FILE_SIZE
             ? CATBOX_MAX_GIF_SIZE
