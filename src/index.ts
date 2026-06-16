@@ -1,5 +1,8 @@
 import { Hono } from "hono";
-import { uploadBlob } from "./services/catbox";
+import {
+  uploadBlob,
+  MAX_GIF_SIZE as CATBOX_MAX_GIF_SIZE,
+} from "./services/catbox";
 import {
   uploadImageBlob,
   uploadImageUrl,
@@ -107,6 +110,17 @@ app.post("/blob", async (c) => {
     }
 
     const isImg = file.type.startsWith("image/");
+    const isGif = file.type === "image/gif";
+    if (!isGif) {
+      const maxGifSize =
+        CATBOX_MAX_GIF_SIZE > IMGBB_MAX_FILE_SIZE
+          ? CATBOX_MAX_GIF_SIZE
+          : IMGBB_MAX_FILE_SIZE;
+      const isGifTooLarge = fileSize > maxGifSize;
+      const maxGifSizeMb = Math.floor(maxGifSize / 1024 / 1024);
+
+      return c.text(`max supported gif size: ${maxGifSizeMb} MB`);
+    }
 
     const userhash = c.env.USERHASH;
     const imgbbKey = c.env.IMGBB_API_KEY;
@@ -186,6 +200,17 @@ app.post("/url", async (c) => {
       const file = await fetchFile(urlClean);
       const fileSize = file.size;
       const isImg = file.type.startsWith("image/");
+      const isGif = file.type === "image/gif";
+      if (!isGif) {
+        const maxGifSize =
+          CATBOX_MAX_GIF_SIZE > IMGBB_MAX_FILE_SIZE
+            ? CATBOX_MAX_GIF_SIZE
+            : IMGBB_MAX_FILE_SIZE;
+        const isGifTooLarge = fileSize > maxGifSize;
+        const maxGifSizeMb = Math.floor(maxGifSize / 1024 / 1024);
+
+        return c.text(`max supported gif size: ${maxGifSizeMb} MB`);
+      }
 
       // Try to use ImgBB
       try {
