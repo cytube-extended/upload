@@ -91,6 +91,7 @@ const checkContentLength = (maxFileSize: number, contentLength?: string) => {
 };
 
 const checkRequest = (
+  origin?: string,
   allowedOrigin?: string,
   envMaxUploadSize?: string,
   contentLength?: string,
@@ -122,8 +123,9 @@ app.use("*", async (c, next) => {
 app.post("/blob", async (c) => {
   const allowedOrigin = c.env.ALLOWED_ORIGIN;
   const envMaxUploadSize = c.env.MAX_UPLOAD_SIZE;
+  const origin = c.req.header("Origin");
   const contentLength = c.req.header("Content-Length");
-  checkRequest(allowedOrigin, envMaxUploadSize, contentLength);
+  checkRequest(origin, allowedOrigin, envMaxUploadSize, contentLength);
 
   try {
     const { file } = await c.req.parseBody<Partial<BlobUploadBody>>();
@@ -182,8 +184,9 @@ app.post("/blob", async (c) => {
 app.post("/url", async (c) => {
   const allowedOrigin = c.env.ALLOWED_ORIGIN;
   const envMaxUploadSize = c.env.MAX_UPLOAD_SIZE;
+  const origin = c.req.header("Origin");
   const contentLength = c.req.header("Content-Length");
-  checkRequest(allowedOrigin, envMaxUploadSize, contentLength);
+  checkRequest(origin, allowedOrigin, envMaxUploadSize, contentLength);
 
   try {
     const { url } = await c.req.parseBody<Partial<UrlUploadBody>>();
