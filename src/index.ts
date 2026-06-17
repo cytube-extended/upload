@@ -29,15 +29,17 @@ const CLOUDFLARE_MAX_BODY_SIZE = 100 * 1024 * 1024; // 100 MB
 const DEFAULT_MAX_UPLOAD_SIZE = CLOUDFLARE_MAX_BODY_SIZE;
 const FALLBACK_MAX_UPLOAD_SIZE = 50 * 1024 * 1024; // 50 MB
 
-const getMaxUploadSize = (env: Env): number => {
-  const raw = env.MAX_UPLOAD_SIZE;
-  if (!raw) {
+const getMaxUploadSize = (envMaxUploadSize?: string): number => {
+  if (!envMaxUploadSize) {
     return DEFAULT_MAX_UPLOAD_SIZE;
   }
 
-  const n = parseInt(raw, 10);
+  const n = parseInt(envMaxUploadSize, 10);
   if (isNaN(n) || n <= 0) {
-    console.warn(`Invalid MAX_UPLOAD_SIZE, using fallback 50 MB: ${raw}`);
+    const fallbackSize = Math.floor(FALLBACK_MAX_UPLOAD_SIZE / 1024 / 1024);
+    console.warn(
+      `Invalid MAX_UPLOAD_SIZE, using fallback ${fallbackSize} MB: ${envMaxUploadSize}`,
+    );
 
     return FALLBACK_MAX_UPLOAD_SIZE;
   }
@@ -112,7 +114,8 @@ app.post("/blob", async (c) => {
   const origin = c.req.header("Origin");
   checkOrigin(allowedOrigin, origin);
 
-  const maxFileSize = getMaxUploadSize(c.env);
+  const envMaxUploadSize = c.env.MAX_UPLOAD_SIZE;
+  const maxFileSize = getMaxUploadSize(envMaxUploadSize);
   const contentLength = c.req.header("Content-Length");
   checkContentLength(maxFileSize, contentLength);
 
@@ -175,7 +178,8 @@ app.post("/url", async (c) => {
   const origin = c.req.header("Origin");
   checkOrigin(allowedOrigin, origin);
 
-  const maxFileSize = getMaxUploadSize(c.env);
+  const envMaxUploadSize = c.env.MAX_UPLOAD_SIZE;
+  const maxFileSize = getMaxUploadSize(envMaxUploadSize);
   const contentLength = c.req.header("Content-Length");
   checkContentLength(maxFileSize, contentLength);
 
