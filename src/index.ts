@@ -90,6 +90,16 @@ const checkContentLength = (maxFileSize: number, contentLength?: string) => {
   }
 };
 
+const checkRequest = (
+  allowedOrigin?: string,
+  envMaxUploadSize?: string,
+  contentLength?: string,
+) => {
+  checkOrigin(allowedOrigin, origin);
+  const maxFileSize = getMaxUploadSize(envMaxUploadSize);
+  checkContentLength(maxFileSize, contentLength);
+};
+
 const app = new Hono<{ Bindings: Env }>();
 
 app.use("*", async (c, next) => {
@@ -111,13 +121,9 @@ app.use("*", async (c, next) => {
 
 app.post("/blob", async (c) => {
   const allowedOrigin = c.env.ALLOWED_ORIGIN;
-  const origin = c.req.header("Origin");
-  checkOrigin(allowedOrigin, origin);
-
   const envMaxUploadSize = c.env.MAX_UPLOAD_SIZE;
-  const maxFileSize = getMaxUploadSize(envMaxUploadSize);
   const contentLength = c.req.header("Content-Length");
-  checkContentLength(maxFileSize, contentLength);
+  checkRequest(allowedOrigin, envMaxUploadSize, contentLength);
 
   try {
     const { file } = await c.req.parseBody<Partial<BlobUploadBody>>();
@@ -175,13 +181,9 @@ app.post("/blob", async (c) => {
 
 app.post("/url", async (c) => {
   const allowedOrigin = c.env.ALLOWED_ORIGIN;
-  const origin = c.req.header("Origin");
-  checkOrigin(allowedOrigin, origin);
-
   const envMaxUploadSize = c.env.MAX_UPLOAD_SIZE;
-  const maxFileSize = getMaxUploadSize(envMaxUploadSize);
   const contentLength = c.req.header("Content-Length");
-  checkContentLength(maxFileSize, contentLength);
+  checkRequest(allowedOrigin, envMaxUploadSize, contentLength);
 
   try {
     const { url } = await c.req.parseBody<Partial<UrlUploadBody>>();
