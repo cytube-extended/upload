@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import {
   uploadBlob,
   MAX_GIF_SIZE as CATBOX_MAX_GIF_SIZE,
@@ -58,6 +59,20 @@ const fetchFile = async (url: string): Promise<File> => {
   return file;
 };
 
+const checkOrigin = (allowedOrigin?: string, origin?: string) => {
+  if (!allowedOrigin) {
+    throw new HTTPException(403, {
+      message: "ALLOWED_ORIGIN not set, blocking all requests",
+    });
+  }
+
+  if (origin !== allowedOrigin) {
+    throw new HTTPException(403, {
+      message: `blocked request from origin: ${origin}`,
+    });
+  }
+};
+
 const app = new Hono<{ Bindings: Env }>();
 
 app.use("*", async (c, next) => {
@@ -79,18 +94,8 @@ app.use("*", async (c, next) => {
 
 app.post("/blob", async (c) => {
   const allowedOrigin = c.env.ALLOWED_ORIGIN;
-  if (!allowedOrigin) {
-    console.error("ALLOWED_ORIGIN not set, blocking all requests");
-
-    return c.text("forbidden", 403);
-  }
-
   const origin = c.req.header("Origin");
-  if (origin !== allowedOrigin) {
-    console.warn(`blocked request from origin: ${origin}`);
-
-    return c.text("forbidden", 403);
-  }
+  checkOrigin(allowedOrigin, origin);
 
   const contentLength = c.req.header("Content-Length");
   if (!contentLength) {
@@ -163,18 +168,8 @@ app.post("/blob", async (c) => {
 
 app.post("/url", async (c) => {
   const allowedOrigin = c.env.ALLOWED_ORIGIN;
-  if (!allowedOrigin) {
-    console.error("ALLOWED_ORIGIN not set, blocking all requests");
-
-    return c.text("forbidden", 403);
-  }
-
   const origin = c.req.header("Origin");
-  if (origin !== allowedOrigin) {
-    console.warn(`blocked request from origin: ${origin}`);
-
-    return c.text("forbidden", 403);
-  }
+  checkOrigin(allowedOrigin, origin);
 
   const contentLength = c.req.header("Content-Length");
   if (!contentLength) {
