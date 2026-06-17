@@ -73,6 +73,21 @@ const checkOrigin = (allowedOrigin?: string, origin?: string) => {
   }
 };
 
+const checkContentLength = (maxFileSize: number, contentLength?: string) => {
+  if (!contentLength) {
+    throw new HTTPException(400, {
+      message: "content length not specified",
+    });
+  }
+
+  const fileSize = parseInt(contentLength, 10);
+  if (fileSize > maxFileSize) {
+    throw new HTTPException(413, {
+      message: "request entity too large",
+    });
+  }
+};
+
 const app = new Hono<{ Bindings: Env }>();
 
 app.use("*", async (c, next) => {
@@ -97,20 +112,9 @@ app.post("/blob", async (c) => {
   const origin = c.req.header("Origin");
   checkOrigin(allowedOrigin, origin);
 
-  const contentLength = c.req.header("Content-Length");
-  if (!contentLength) {
-    console.error("content length not specified");
-
-    return c.text("content length not specified", 400);
-  }
-
   const maxFileSize = getMaxUploadSize(c.env);
-  const fileSize = parseInt(contentLength, 10);
-  if (fileSize > maxFileSize) {
-    console.error(`request entity too large: ${fileSize} bytes`);
-
-    return c.text("request entity too large", 413);
-  }
+  const contentLength = c.req.header("Content-Length");
+  checkContentLength(maxFileSize, contentLength);
 
   try {
     const { file } = await c.req.parseBody<Partial<BlobUploadBody>>();
@@ -171,16 +175,9 @@ app.post("/url", async (c) => {
   const origin = c.req.header("Origin");
   checkOrigin(allowedOrigin, origin);
 
-  const contentLength = c.req.header("Content-Length");
-  if (!contentLength) {
-    return c.text("content length not specified", 400);
-  }
-
   const maxFileSize = getMaxUploadSize(c.env);
-  const fileSize = parseInt(contentLength, 10);
-  if (fileSize > maxFileSize) {
-    return c.text("request entity too large", 413);
-  }
+  const contentLength = c.req.header("Content-Length");
+  checkContentLength(maxFileSize, contentLength);
 
   try {
     const { url } = await c.req.parseBody<Partial<UrlUploadBody>>();
