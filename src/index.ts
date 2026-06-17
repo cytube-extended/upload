@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
+import { fetchFile } from "./utils";
 import {
   uploadBlob,
   MAX_GIF_SIZE as CATBOX_MAX_GIF_SIZE,
@@ -30,20 +31,6 @@ interface UrlUploadBody {
 // Cloudflare max body size limit
 const DEFAULT_MAX_UPLOAD_SIZE = 100 * 1024 * 1024; // 100 MB
 
-const fetchFile = async (url: string): Promise<File> => {
-  const response = await fetch(url);
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch url content: ${response.status}`);
-  }
-
-  const blob = await response.blob();
-  const filename = new URL(url).pathname.split("/").pop() || "file";
-  const file = new File([blob], filename, { type: blob.type });
-
-  return file;
-};
-
 const app = new Hono<{ Bindings: Env }>();
 
 app.use(
@@ -69,7 +56,7 @@ app.use(
   async (c, next) => {
     const contentLength = c.req.header("Content-Length");
     if (!contentLength) {
-      return c.text("Missing Content-Length header", 400);
+      return c.text("Missing Content-Length header", 411);
     }
 
     if (isNaN(Number(contentLength))) {
