@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { bodyLimit } from "hono/body-limit";
 import { HTTPException } from "hono/http-exception";
 import {
   uploadBlob,
@@ -25,27 +27,8 @@ interface UrlUploadBody {
   url: string;
 }
 
-const CLOUDFLARE_MAX_BODY_SIZE = 100 * 1024 * 1024; // 100 MB
-const DEFAULT_MAX_UPLOAD_SIZE = CLOUDFLARE_MAX_BODY_SIZE;
-const FALLBACK_MAX_UPLOAD_SIZE = 50 * 1024 * 1024; // 50 MB
-
-const getMaxUploadSize = (envMaxUploadSize?: string): number => {
-  if (!envMaxUploadSize) {
-    return DEFAULT_MAX_UPLOAD_SIZE;
-  }
-
-  const n = parseInt(envMaxUploadSize, 10);
-  if (isNaN(n) || n <= 0) {
-    const fallbackSize = Math.floor(FALLBACK_MAX_UPLOAD_SIZE / 1024 / 1024);
-    console.warn(
-      `Invalid MAX_UPLOAD_SIZE, using fallback ${fallbackSize} MB: ${envMaxUploadSize}`,
-    );
-
-    return FALLBACK_MAX_UPLOAD_SIZE;
-  }
-
-  return n;
-};
+// Cloudflare max body size limit
+const DEFAULT_MAX_UPLOAD_SIZE = 100 * 1024 * 1024; // 100 MB
 
 const fetchFile = async (url: string): Promise<File> => {
   const response = await fetch(url);
@@ -61,72 +44,56 @@ const fetchFile = async (url: string): Promise<File> => {
   return file;
 };
 
-const checkOrigin = (allowedOrigin?: string, origin?: string) => {
-  if (!allowedOrigin) {
-    throw new HTTPException(403, {
-      message: "ALLOWED_ORIGIN not set, blocking all requests",
-    });
-  }
-
-  if (origin !== allowedOrigin) {
-    throw new HTTPException(403, {
-      message: `blocked request from origin: ${origin}`,
-    });
-  }
-};
-
-const checkContentLength = (maxFileSize: number, contentLength?: string) => {
-  if (!contentLength) {
-    throw new HTTPException(400, {
-      message: "content length not specified",
-    });
-  }
-
-  const fileSize = parseInt(contentLength, 10);
-  if (fileSize > maxFileSize) {
-    throw new HTTPException(413, {
-      message: "request entity too large",
-    });
-  }
-};
-
-const checkRequest = (
-  origin?: string,
-  allowedOrigin?: string,
-  envMaxUploadSize?: string,
-  contentLength?: string,
-) => {
-  checkOrigin(allowedOrigin, origin);
-  const maxFileSize = getMaxUploadSize(envMaxUploadSize);
-  checkContentLength(maxFileSize, contentLength);
-};
-
 const app = new Hono<{ Bindings: Env }>();
 
-app.use("*", async (c, next) => {
-  const allowedOrigin = c.env.ALLOWED_ORIGIN;
-
-  // Preflight
-  if (c.req.method === "OPTIONS") {
-    if (allowedOrigin) {
-      c.header("Access-Control-Allow-Origin", allowedOrigin);
-      c.header("Access-Control-Allow-Methods", "POST, OPTIONS");
-      c.header("Access-Control-Allow-Headers", "Content-Type");
+app.use(
+  "*",
+  // CORS
+  (c, next) => {
+    const allowedOrigin = c.env.ALLOWED_ORIGIN;
+    if (!allowedOrigin) {
+      throw new HTTPException(403, {
+        message: "ALLOWED_ORIGIN not set, blocking all requests",
+      });
     }
 
-    return c.text("", 200);
-  }
+    const corsMiddlewareHandler = cors({
+      origin: c.env.ALLOWED_ORIGIN,
+      allowMethods: ["POST"],
+      allowHeaders: ["Content-Type"],
+    });
 
-  await next();
-});
+    return corsMiddlewareHandler(c, next);
+  },
+  // Content Length header validation
+  async (c, next) => {
+    const contentLength = c.req.header("Content-Length");
+    if (!contentLength) {
+      return c.text("Missing Content-Length header", 400);
+    }
+
+    if (isNaN(Number(contentLength))) {
+      return c.text("Invalid Content-Length header", 400);
+    }
+
+    await next();
+  },
+  // Body size validation
+  (c, next) => {
+    const envMaxUploadSize = parseInt(c.env.MAX_UPLOAD_SIZE, 10);
+    const useDefault = isNaN(envMaxUploadSize) || envMaxUploadSize <= 0;
+    const maxSize = useDefault ? DEFAULT_MAX_UPLOAD_SIZE : envMaxUploadSize;
+
+    const bodyLimitMiddlewareHandler = bodyLimit({
+      maxSize,
+      onError: (c) => c.text("entity too large", 413),
+    });
+
+    return bodyLimitMiddlewareHandler(c, next);
+  },
+);
 
 app.post("/blob", async (c) => {
-  const allowedOrigin = c.env.ALLOWED_ORIGIN;
-  const envMaxUploadSize = c.env.MAX_UPLOAD_SIZE;
-  const origin = c.req.header("Origin");
-  const contentLength = c.req.header("Content-Length");
-  checkRequest(origin, allowedOrigin, envMaxUploadSize, contentLength);
-
   try {
     const { file } = await c.req.parseBody<Partial<BlobUploadBody>>();
     if (!file || !(file instanceof File)) {
@@ -165,7 +132,6 @@ app.post("/blob", async (c) => {
       const response = await uploadBlob(file, userhash);
       const result = response.trim();
 
-      c.header("Access-Control-Allow-Origin", allowedOrigin);
       c.header("Content-Type", "text/plain");
 
       return c.text(result, 200);
@@ -182,12 +148,6 @@ app.post("/blob", async (c) => {
 });
 
 app.post("/url", async (c) => {
-  const allowedOrigin = c.env.ALLOWED_ORIGIN;
-  const envMaxUploadSize = c.env.MAX_UPLOAD_SIZE;
-  const origin = c.req.header("Origin");
-  const contentLength = c.req.header("Content-Length");
-  checkRequest(origin, allowedOrigin, envMaxUploadSize, contentLength);
-
   try {
     const { url } = await c.req.parseBody<Partial<UrlUploadBody>>();
     if (typeof url !== "string") {
@@ -263,7 +223,6 @@ app.post("/url", async (c) => {
         const response = await uploadBlob(file, userhash);
         const result = response.trim();
 
-        c.header("Access-Control-Allow-Origin", allowedOrigin);
         c.header("Content-Type", "text/plain");
 
         return c.text(result, 200);
